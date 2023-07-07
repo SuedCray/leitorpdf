@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verificação de Currículos em PDF</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.8.335/pdf.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Fintalk</h1>
+  </header>
+  <div class="box">
+  <input type="file" id="pdfFiles" accept=".pdf" multiple><br><br>
+  <button id="processButton" disabled>Processar</button>
+  </div>
+  <script>
+    document.getElementById('pdfFiles').addEventListener('change', function(event) {
+      var files = event.target.files;
+      var fileCount = files.length;
+      
+      var processFiles = function() {
+        var processedCount = 0;
+        var acceptedCount = 0;
+        
+        for (var i = 0; i < fileCount; i++) {
+          var file = files[i];
+          var fileReader = new FileReader();
+          
+          fileReader.onload = function(file) {
+            return function() {
+              var typedArray = new Uint8Array(this.result);
+              
+              // Carregar o PDF usando o PDF.js
+              pdfjsLib.getDocument(typedArray).promise.then(function(pdf) {
+                var numPages = pdf.numPages;
+                var fullText = '';
+                
+                // Extrair o texto de todas as páginas do PDF
+                var getPageText = function(page) {
+                  return page.getTextContent().then(function(textContent) {
+                    var pageText = '';
+                    for (var i = 0; i < textContent.items.length; i++) {
+                      pageText += textContent.items[i].str + ' ';
+                    }
+                    return pageText;
+                  });
+                };
+                
+                var extractText = function() {
+                  var promises = [];
+                  for (var i = 1; i <= numPages; i++) {
+                    promises.push(pdf.getPage(i).then(getPageText));
+                  }
+                  
+                  return Promise.all(promises).then(function(pageTexts) {
+                    return pageTexts.join(' ');
+                  });
+                };
+                
+                extractText().then(function(text) {
+                  var keywords = prompt('Digite as palavras-chave separadas por vírgula para o arquivo "' + file.name + '":').split(',').map(function(keyword) {
+                    return keyword.trim();
+                  });
+                  
+                  var foundKeyword = false;
+                  
+                  for (var i = 0; i < keywords.length; i++) {
+                    if (text.includes(keywords[i])) {
+                      foundKeyword = true;
+                      break;
+                    }
+                  }
+                  
+                  if (foundKeyword) {
+                    alert('O currículo no arquivo "' + file.name + '" foi aceito!');
+                    acceptedCount++;
+                  } else {
+                    alert('O currículo no arquivo "' + file.name + '" foi rejeitado!');
+                  }
+                  
+                  processedCount++;
+                  
+                  // Verificar se todos os arquivos foram processados
+                  if (processedCount === fileCount) {
+                    alert('Total de currículos aceitos: ' + acceptedCount);
+                    console.log('Total de currículos rejeitados: ' + (fileCount - acceptedCount));
+                  }
+                });
+              });
+            };
+          }(file);
+          
+          fileReader.readAsArrayBuffer(file);
+        }
+      };
+      
+      processFiles();
+    });
+    
+    document.getElementById('processButton').addEventListener('click', function() {
+      document.getElementById('pdfFiles').click();
+    });
+    
+    document.getElementById('pdfFiles').addEventListener('input', function() {
+      document.getElementById('processButton').disabled = !this.value;
+    });
+  </script>
+</body>
+</html>
